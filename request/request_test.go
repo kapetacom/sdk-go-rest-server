@@ -26,7 +26,7 @@ func TestParseRequestWithQueryParametersTyped(t *testing.T) {
 		res := []string{}
 		// detect if return type is a slice
 		ctx := echo.New().NewContext(req, nil)
-		res, err := GetQueryParam[[]string](ctx, "param1", &res)
+		err := GetQueryParam[[]string](ctx, "param1", &res)
 		assert.NoError(t, err)
 		assert.Equal(t, []string{"value1", "value2", "value3"}, res)
 	})
@@ -41,7 +41,7 @@ func TestParseRequestWithQueryParametersTyped(t *testing.T) {
 		res := []string{}
 		// detect if return type is a slice
 		ctx := echo.New().NewContext(req, nil)
-		res, err := GetQueryParam[[]string](ctx, "param1", &res)
+		err := GetQueryParam[[]string](ctx, "param1", &res)
 		assert.NoError(t, err)
 		assert.Equal(t, []string{"value1", "value2", "value3"}, res)
 	})
@@ -54,7 +54,7 @@ func TestParseRequestWithQueryParametersTyped(t *testing.T) {
 		}
 		ctx := echo.New().NewContext(req, nil)
 		res := ""
-		res, err := GetQueryParam[string](ctx, "param1", &res)
+		err := GetQueryParam[string](ctx, "param1", &res)
 		assert.NoError(t, err)
 		assert.Equal(t, "value1", res)
 	})
@@ -67,7 +67,7 @@ func TestParseRequestWithQueryParametersTyped(t *testing.T) {
 		}
 		ctx := echo.New().NewContext(req, nil)
 		res := 0
-		res, err := GetQueryParam[int](ctx, "param1", &res)
+		err := GetQueryParam[int](ctx, "param1", &res)
 		assert.NoError(t, err)
 		assert.Equal(t, 42, res)
 	})
@@ -80,7 +80,7 @@ func TestParseRequestWithQueryParametersTyped(t *testing.T) {
 		}
 		ctx := echo.New().NewContext(req, nil)
 		res := false
-		res, err := GetQueryParam[bool](ctx, "param1", &res)
+		err := GetQueryParam[bool](ctx, "param1", &res)
 		assert.NoError(t, err)
 		assert.Equal(t, true, res)
 	})
@@ -93,7 +93,7 @@ func TestParseRequestWithQueryParametersTyped(t *testing.T) {
 		}
 		ctx := echo.New().NewContext(req, nil)
 		res := 0.0
-		res, err := GetQueryParam[float64](ctx, "param1", &res)
+		err := GetQueryParam[float64](ctx, "param1", &res)
 		assert.NoError(t, err)
 		assert.Equal(t, 42.42, res)
 	})
@@ -111,10 +111,10 @@ func TestParseRequestWithPathParameters(t *testing.T) {
 	ctx.SetParamValues("value1", "value2")
 
 	res := ""
-	res, err := GetPathParams[string](ctx, "param1", &res)
+	err := GetPathParams[string](ctx, "param1", &res)
 	assert.NoError(t, err)
 	assert.Equal(t, "value1", res)
-	res, err = GetPathParams[string](ctx, "param2", &res)
+	err = GetPathParams[string](ctx, "param2", &res)
 	assert.NoError(t, err)
 	assert.Equal(t, "value2", res)
 }
@@ -152,7 +152,7 @@ func TestGetBody(t *testing.T) {
 
 			body := &struct{ Name string }{}
 			// Call the GetBody function.
-			got, err := GetBody(e.NewContext(req, nil), body)
+			err := GetBody(e.NewContext(req, nil), body)
 
 			// Check the results.
 			if test.wantError {
@@ -163,8 +163,8 @@ func TestGetBody(t *testing.T) {
 				if err != nil {
 					t.Errorf("GetBody() returned an error when it should not have: %v", err)
 				}
-				if !reflect.DeepEqual(got, test.want) {
-					t.Errorf("GetBody() got = %v, want = %v", got, test.want)
+				if !reflect.DeepEqual(body, test.want) {
+					t.Errorf("GetBody() got = %v, want = %v", body, test.want)
 				}
 			}
 		})
