@@ -15,18 +15,18 @@ import (
 // GetBody function takes two arguments: an echo context and a pointer to the return value.
 // It used a JSON decoder to convert the request body into the return value.
 // If the decoding fails, the function returns an error.
-func GetBody[T any](ctx echo.Context, returnValue *T) (*T, error) {
+func GetBody[T any](ctx echo.Context, returnValue *T) error {
 	err := json.NewDecoder(ctx.Request().Body).Decode(returnValue)
 	if err != nil {
-		return nil, err
+		return err
 	}
-	return returnValue, nil
+	return nil
 }
 
 // GetPathParams function takes three arguments: an echo context, a string key, and a pointer to the return value.
 // It returns the value of the key from the path parameters.
 // If the key is not found, the function returns an error.
-func GetPathParams[T any](ctx echo.Context, key string, returnValue *T) (T, error) {
+func GetPathParams[T any](ctx echo.Context, key string, returnValue *T) error {
 	vals := ctx.ParamValues()
 	keys := ctx.ParamNames()
 	for i, k := range keys {
@@ -35,23 +35,23 @@ func GetPathParams[T any](ctx echo.Context, key string, returnValue *T) (T, erro
 			return convertToType[T](returnValue, val)
 		}
 	}
-	return *returnValue, fmt.Errorf("key not found")
+	return fmt.Errorf("key not found")
 }
 
 // GetQueryParam function takes three arguments: an echo context, a string key, and a pointer to the return value.
 // It returns the value of the key from the query parameters like /test?key=value
 // If the key is not found, the function returns an error.
-func GetQueryParam[T any](ctx echo.Context, key string, returnValue *T) (T, error) {
+func GetQueryParam[T any](ctx echo.Context, key string, returnValue *T) error {
 	vals := ctx.Request().URL.Query()[key]
 	return convertToType[T](returnValue, strings.Join(vals, ","))
 }
 
-func convertToType[T any](returnValue *T, val string) (T, error) {
+func convertToType[T any](target *T, val string) error {
 
 	var bodyBytes []byte
 	var err error
 
-	rt := reflect.TypeOf(*returnValue)
+	rt := reflect.TypeOf(*target)
 	kind := rt.Kind()
 	switch kind {
 	case reflect.Map:
@@ -65,36 +65,39 @@ func convertToType[T any](returnValue *T, val string) (T, error) {
 	case reflect.Bool:
 		x, err := strconv.ParseBool(val)
 		if err != nil {
-			return *returnValue, err
+			return err
 		}
 		bodyBytes, err = json.Marshal(x)
 		if err != nil {
-			return *returnValue, err
+			return err
 		}
 	case reflect.Float32, reflect.Float64:
 		x, err := strconv.ParseFloat(val, 64)
 		if err != nil {
-			return *returnValue, err
+			return err
 		}
 		bodyBytes, err = json.Marshal(x)
 		if err != nil {
-			return *returnValue, err
+			return err
 		}
 	case reflect.Int:
 		x, err := strconv.Atoi(val)
 		if err != nil {
-			return *returnValue, err
+			return err
 		}
 		bodyBytes, err = json.Marshal(x)
 		if err != nil {
-			return *returnValue, err
+			return err
 		}
 	default:
 		bodyBytes, err = json.Marshal(val)
 	}
 	if err != nil {
-		return *returnValue, err
+		return err
 	}
-	x := json.Unmarshal(bodyBytes, &returnValue)
-	return *returnValue, x
+	err = json.Unmarshal(bodyBytes, target)
+	if err != nil {
+		return err
+	}
+	return nil
 }
