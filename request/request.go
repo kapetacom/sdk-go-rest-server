@@ -46,6 +46,14 @@ func GetQueryParam[T any](ctx echo.Context, key string, returnValue *T) error {
 	return convertToType[T](returnValue, strings.Join(vals, ","))
 }
 
+// GetHeaderParams function takes three arguments: an echo context, a string key, and a pointer to the return value.
+// It returns the value of the key from the header parameters.
+// If the key is not found, the function returns an error.
+func GetHeaderParams[T any](ctx echo.Context, key string, returnValue *T) error {
+	vals := ctx.Request().Header.Get(key)
+	return convertToType[T](returnValue, vals)
+}
+
 func convertToType[T any](target *T, val string) error {
 
 	var bodyBytes []byte
