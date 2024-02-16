@@ -170,3 +170,29 @@ func TestGetBody(t *testing.T) {
 		})
 	}
 }
+
+func TestGetHeaderParams(t *testing.T) {
+	t.Run("GetHeaderParams", func(t *testing.T) {
+		req := httptest.NewRequest(http.MethodPost, "/", nil)
+		req.Header.Add("Content-Type", "application/json")
+
+		e := echo.New()
+		ctx := e.NewContext(req, nil)
+
+		res := ""
+		err := GetHeaderParams[string](ctx, "Content-Type", &res)
+		assert.NoError(t, err)
+		assert.Equal(t, "application/json", res)
+	})
+	t.Run("GetHeaderParams with invalid key", func(t *testing.T) {
+		req := httptest.NewRequest(http.MethodPost, "/", nil)
+		req.Header.Add("Content-Type", "application/json")
+
+		e := echo.New()
+		ctx := e.NewContext(req, nil)
+
+		res := ""
+		_ = GetHeaderParams[string](ctx, "Invalid-Key", &res)
+		assert.Equal(t, "", res)
+	})
+}
