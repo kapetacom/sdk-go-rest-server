@@ -2,9 +2,13 @@ module github.com/kapetacom/sdk-go-rest-server
 
 go 1.21.6
 
-require github.com/stretchr/testify v1.8.4
+require (
+	github.com/ggicci/httpin v0.16.0
+	github.com/stretchr/testify v1.8.4
+)
 
 require (
+	github.com/ggicci/owl v0.7.0 // indirect
 	github.com/golang-jwt/jwt v3.2.2+incompatible // indirect
 	github.com/labstack/gommon v0.4.2 // indirect
 	github.com/mattn/go-colorable v0.1.13 // indirect
