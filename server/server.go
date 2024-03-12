@@ -26,6 +26,8 @@ func NewWithDefaults() *KapetaServer {
 	// add recover middleware to recover from panics
 	e.Use(middleware.Recover())
 
+	// register the path directive to extract path parameters from the request in the httpin library
+	UseEchoPathRouter(e)
 	return &KapetaServer{e}
 }
 
