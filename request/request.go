@@ -57,16 +57,28 @@ func GetPathParams[T any](ctx echo.Context, key string, returnValue *T) error {
 // GetQueryParam function takes three arguments: an echo context, a string key, and a pointer to the return value.
 // It returns the value of the key from the query parameters like /test?key=value
 // If the key is not found, the function returns an error.
-func GetQueryParam[T any](ctx echo.Context, key string, returnValue *T) error {
+func GetQueryParam[T any](ctx echo.Context, key string, returnValue *T, optional bool) error {
 	vals := ctx.Request().URL.Query()[key]
+	if len(vals) == 0 {
+		if optional {
+			return nil
+		}
+		return fmt.Errorf("key '%v' not found", key)
+	}
 	return convertToType[T](returnValue, strings.Join(vals, ","))
 }
 
 // GetHeaderParams function takes three arguments: an echo context, a string key, and a pointer to the return value.
 // It returns the value of the key from the header parameters.
 // If the key is not found, the function returns an error.
-func GetHeaderParams[T any](ctx echo.Context, key string, returnValue *T) error {
+func GetHeaderParams[T any](ctx echo.Context, key string, returnValue *T, optional bool) error {
 	vals := ctx.Request().Header.Get(key)
+	if vals == "" {
+		if optional {
+			return nil
+		}
+		return fmt.Errorf("key '%v' not found", key)
+	}
 	return convertToType[T](returnValue, vals)
 }
 

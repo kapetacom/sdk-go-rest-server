@@ -14,7 +14,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestParseRequestWithQueryParametersTyped(t *testing.T) {
+func TestParseRequestWithQueryParameters(t *testing.T) {
 	t.Run("[]string", func(t *testing.T) {
 		req := &http.Request{
 			URL: &url.URL{
@@ -26,9 +26,24 @@ func TestParseRequestWithQueryParametersTyped(t *testing.T) {
 		res := []string{}
 		// detect if return type is a slice
 		ctx := echo.New().NewContext(req, nil)
-		err := GetQueryParam[[]string](ctx, "param1", &res)
+		err := GetQueryParam(ctx, "param1", &res, false)
 		assert.NoError(t, err)
 		assert.Equal(t, []string{"value1", "value2", "value3"}, res)
+	})
+	t.Run("[]string with one element", func(t *testing.T) {
+		req := &http.Request{
+			URL: &url.URL{
+				Path:     "/path/to/resource",
+				RawQuery: "param1=value1",
+			},
+		}
+
+		var res []string
+		// detect if return type is a slice
+		ctx := echo.New().NewContext(req, nil)
+		err := GetQueryParam(ctx, "param1", &res, false)
+		assert.NoError(t, err)
+		assert.Equal(t, []string{"value1"}, res)
 	})
 	t.Run("atlernate []string", func(t *testing.T) {
 		req := &http.Request{
@@ -41,7 +56,7 @@ func TestParseRequestWithQueryParametersTyped(t *testing.T) {
 		res := []string{}
 		// detect if return type is a slice
 		ctx := echo.New().NewContext(req, nil)
-		err := GetQueryParam[[]string](ctx, "param1", &res)
+		err := GetQueryParam(ctx, "param1", &res, false)
 		assert.NoError(t, err)
 		assert.Equal(t, []string{"value1", "value2", "value3"}, res)
 	})
@@ -54,7 +69,7 @@ func TestParseRequestWithQueryParametersTyped(t *testing.T) {
 		}
 		ctx := echo.New().NewContext(req, nil)
 		res := ""
-		err := GetQueryParam[string](ctx, "param1", &res)
+		err := GetQueryParam(ctx, "param1", &res, false)
 		assert.NoError(t, err)
 		assert.Equal(t, "value1", res)
 	})
@@ -67,7 +82,7 @@ func TestParseRequestWithQueryParametersTyped(t *testing.T) {
 		}
 		ctx := echo.New().NewContext(req, nil)
 		res := 0
-		err := GetQueryParam[int](ctx, "param1", &res)
+		err := GetQueryParam(ctx, "param1", &res, false)
 		assert.NoError(t, err)
 		assert.Equal(t, 42, res)
 	})
@@ -80,7 +95,7 @@ func TestParseRequestWithQueryParametersTyped(t *testing.T) {
 		}
 		ctx := echo.New().NewContext(req, nil)
 		res := false
-		err := GetQueryParam[bool](ctx, "param1", &res)
+		err := GetQueryParam(ctx, "param1", &res, false)
 		assert.NoError(t, err)
 		assert.Equal(t, true, res)
 	})
@@ -93,30 +108,72 @@ func TestParseRequestWithQueryParametersTyped(t *testing.T) {
 		}
 		ctx := echo.New().NewContext(req, nil)
 		res := 0.0
-		err := GetQueryParam[float64](ctx, "param1", &res)
+		err := GetQueryParam(ctx, "param1", &res, false)
 		assert.NoError(t, err)
 		assert.Equal(t, 42.42, res)
+	})
+
+	t.Run("missing query parameter", func(t *testing.T) {
+		req := &http.Request{
+			URL: &url.URL{
+				Path: "/path/to/resource",
+			},
+		}
+		ctx := echo.New().NewContext(req, nil)
+		res := ""
+		err := GetQueryParam(ctx, "param1", &res, false)
+		assert.Error(t, err)
+	})
+	t.Run("optional query parameter", func(t *testing.T) {
+		req := &http.Request{
+			URL: &url.URL{
+				Path: "/path/to/resource",
+			},
+		}
+		ctx := echo.New().NewContext(req, nil)
+		res := ""
+		err := GetQueryParam(ctx, "param1", &res, true)
+		assert.NoError(t, err)
 	})
 }
 
 func TestParseRequestWithPathParameters(t *testing.T) {
-	req := &http.Request{
-		URL: &url.URL{
-			Path: "/path/to/resource/:param1/:param2",
-		},
-	}
+	t.Run("multiple path variables", func(t *testing.T) {
+		req := &http.Request{
+			URL: &url.URL{
+				Path: "/path/to/resource/:param1/:param2",
+			},
+		}
 
-	ctx := echo.New().NewContext(req, nil)
-	ctx.SetParamNames("param1", "param2")
-	ctx.SetParamValues("value1", "value2")
+		ctx := echo.New().NewContext(req, nil)
+		ctx.SetParamNames("param1", "param2")
+		ctx.SetParamValues("value1", "value2")
 
-	res := ""
-	err := GetPathParams[string](ctx, "param1", &res)
-	assert.NoError(t, err)
-	assert.Equal(t, "value1", res)
-	err = GetPathParams[string](ctx, "param2", &res)
-	assert.NoError(t, err)
-	assert.Equal(t, "value2", res)
+		res := ""
+		err := GetPathParams[string](ctx, "param1", &res)
+		assert.NoError(t, err)
+		assert.Equal(t, "value1", res)
+		err = GetPathParams[string](ctx, "param2", &res)
+		assert.NoError(t, err)
+		assert.Equal(t, "value2", res)
+	})
+	t.Run("missing path variable", func(t *testing.T) {
+		req := &http.Request{
+			URL: &url.URL{
+				Path: "/path/to/resource/:param1/:param2",
+			},
+		}
+
+		ctx := echo.New().NewContext(req, nil)
+		ctx.SetParamNames("param1")
+		ctx.SetParamValues("value1")
+
+		res := ""
+		err := GetPathParams(ctx, "param1", &res)
+		assert.NoError(t, err)
+		err = GetPathParams(ctx, "param2", &res)
+		assert.Error(t, err)
+	})
 }
 
 func TestGetBody(t *testing.T) {
@@ -180,7 +237,7 @@ func TestGetHeaderParams(t *testing.T) {
 		ctx := e.NewContext(req, nil)
 
 		res := ""
-		err := GetHeaderParams[string](ctx, "Content-Type", &res)
+		err := GetHeaderParams[string](ctx, "Content-Type", &res, false)
 		assert.NoError(t, err)
 		assert.Equal(t, "application/json", res)
 	})
@@ -192,7 +249,7 @@ func TestGetHeaderParams(t *testing.T) {
 		ctx := e.NewContext(req, nil)
 
 		res := ""
-		_ = GetHeaderParams[string](ctx, "Invalid-Key", &res)
+		_ = GetHeaderParams[string](ctx, "Invalid-Key", &res, false)
 		assert.Equal(t, "", res)
 	})
 }
