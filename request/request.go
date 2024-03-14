@@ -14,19 +14,20 @@ import (
 	"github.com/labstack/echo/v4"
 )
 
-func GetRequetParameters[T any](req *http.Request, param *T) error {
-    y,err := httpin.New(param)
-    if err != nil {
-        return err
-    }
-    v, err := y.Decode(req)
-    if err != nil {
-        return err
-    }
-    k := v.(*T)
-    *param = *k
-    return nil
+func GetRequestParameters[T any](req *http.Request, param *T) error {
+	paramHandler, err := httpin.New(param)
+	if err != nil {
+		return err
+	}
+	paramValues, err := paramHandler.Decode(req)
+	if err != nil {
+		return err
+	}
+	castParamValues := paramValues.(*T)
+	*param = *castParamValues
+	return nil
 }
+
 // GetBody function takes two arguments: an echo context and a pointer to the return value.
 // It used a JSON decoder to convert the request body into the return value.
 // If the decoding fails, the function returns an error.
