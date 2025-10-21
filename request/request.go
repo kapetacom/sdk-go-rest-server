@@ -5,123 +5,139 @@ package request
 import (
 	"encoding/json"
 	"fmt"
-	"net/http"
 	"reflect"
 	"strconv"
 	"strings"
 
-	"github.com/ggicci/httpin"
 	"github.com/labstack/echo/v4"
 )
 
-func GetRequestParameters[T any](req *http.Request, param *T) error {
-	paramHandler, err := httpin.New(param)
-	if err != nil {
-		return err
-	}
-	paramValues, err := paramHandler.Decode(req)
-	if err != nil {
-		return err
-	}
-	castParamValues := paramValues.(*T)
-	*param = *castParamValues
-	return nil
-}
-
-// GetBody function takes two arguments: an echo context and a pointer to the return value.
-// It used a JSON decoder to convert the request body into the return value.
-// If the decoding fails, the function returns an error.
-func GetBody[T any](ctx echo.Context, returnValue *T) error {
-	err := json.NewDecoder(ctx.Request().Body).Decode(returnValue)
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
-// GetPathParams function takes three arguments: an echo context, a string key, and a pointer to the return value.
-// It returns the value of the key from the path parameters.
-// If the key is not found, the function returns an error.
-func GetPathParams[T any](ctx echo.Context, key string, returnValue *T) error {
-	vals := ctx.ParamValues()
-	keys := ctx.ParamNames()
-	for i, k := range keys {
-		if k == key {
-			val := vals[i]
-			return convertToType[T](returnValue, val)
+// FillStruct fills a struct with data from path, query, body, and headers.
+// Tags format: in:"<source>=<key>;required"
+// Supported sources: path, query, body, header
+func FillStruct[T any](ctx echo.Context, result *T) error {
+	// Decode body into a map
+	body := map[string]any{}
+	if ctx.Request().Body != nil {
+		if err := json.NewDecoder(ctx.Request().Body).Decode(&body); err != nil && err.Error() != "EOF" {
+			return fmt.Errorf("failed to decode body: %w", err)
 		}
 	}
-	return fmt.Errorf("key not found")
+
+	v := reflect.ValueOf(result).Elem()
+	t := v.Type()
+
+	for i := 0; i < t.NumField(); i++ {
+		field := t.Field(i)
+		fieldVal := v.Field(i)
+		if !fieldVal.CanSet() {
+			continue
+		}
+
+		inTag, ok := field.Tag.Lookup("in")
+		if !ok {
+			continue
+		}
+
+		// Parse tag: "source=key;required"
+		parts := strings.Split(inTag, ";")
+		sourceKey := strings.SplitN(parts[0], "=", 2)
+		if len(sourceKey) != 2 {
+			return fmt.Errorf("invalid in tag format for field %s", field.Name)
+		}
+		source, key := sourceKey[0], sourceKey[1]
+
+		required := false
+		for _, p := range parts[1:] {
+			if strings.ToLower(p) == "required" {
+				required = true
+			}
+		}
+
+		var val string
+		switch source {
+		case "path":
+			val = ctx.Param(key)
+		case "query":
+			vals := ctx.QueryParams()[key]
+			if len(vals) == 0 {
+				val = ""
+			} else if len(vals) == 1 {
+				val = vals[0]
+			} else {
+				val = strings.Join(vals, ",")
+			}
+		case "body":
+			if bodyVal, ok := body[key]; ok {
+				val = fmt.Sprintf("%v", bodyVal)
+			}
+		case "header":
+			val = ctx.Request().Header.Get(key)
+		default:
+			return fmt.Errorf("unsupported source: %s", source)
+		}
+
+		if required && val == "" {
+			return fmt.Errorf("field %s is required but missing", field.Name)
+		}
+
+		if val != "" {
+			if err := setFieldValue(fieldVal, val); err != nil {
+				return fmt.Errorf("failed to set field %s: %w", field.Name, err)
+			}
+		}
+	}
+
+	return nil
 }
 
-// GetQueryParam function takes three arguments: an echo context, a string key, and a pointer to the return value.
-// It returns the value of the key from the query parameters like /test?key=value
-// If the key is not found, the function returns an error.
-func GetQueryParam[T any](ctx echo.Context, key string, returnValue *T) error {
-	vals := ctx.Request().URL.Query()[key]
-	return convertToType[T](returnValue, strings.Join(vals, ","))
-}
-
-// GetHeaderParams function takes three arguments: an echo context, a string key, and a pointer to the return value.
-// It returns the value of the key from the header parameters.
-// If the key is not found, the function returns an error.
-func GetHeaderParams[T any](ctx echo.Context, key string, returnValue *T) error {
-	vals := ctx.Request().Header.Get(key)
-	return convertToType[T](returnValue, vals)
-}
-
-func convertToType[T any](target *T, val string) error {
-
-	var bodyBytes []byte
-	var err error
-
-	rt := reflect.TypeOf(*target)
-	kind := rt.Kind()
-	switch kind {
-	case reflect.Map:
-		bodyBytes, err = json.Marshal(val)
-
-	case reflect.Array | reflect.Slice:
-		x := strings.Split(val, ",")
-		bodyBytes, err = json.Marshal(x)
+// setFieldValue converts a string to the appropriate type and sets the reflect.Value
+func setFieldValue(fieldVal reflect.Value, val string) error {
+	switch fieldVal.Kind() {
 	case reflect.String:
-		bodyBytes, err = json.Marshal(val)
+		fieldVal.SetString(val)
 	case reflect.Bool:
-		x, err := strconv.ParseBool(val)
+		b, err := strconv.ParseBool(val)
 		if err != nil {
 			return err
 		}
-		bodyBytes, err = json.Marshal(x)
+		fieldVal.SetBool(b)
+	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+		i, err := strconv.ParseInt(val, 10, 64)
 		if err != nil {
 			return err
 		}
+		fieldVal.SetInt(i)
+	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
+		u, err := strconv.ParseUint(val, 10, 64)
+		if err != nil {
+			return err
+		}
+		fieldVal.SetUint(u)
 	case reflect.Float32, reflect.Float64:
-		x, err := strconv.ParseFloat(val, 64)
+		f, err := strconv.ParseFloat(val, 64)
 		if err != nil {
 			return err
 		}
-		bodyBytes, err = json.Marshal(x)
-		if err != nil {
+		fieldVal.SetFloat(f)
+	case reflect.Slice:
+		parts := strings.Split(val, ",")
+		slice := reflect.MakeSlice(fieldVal.Type(), len(parts), len(parts))
+		for i, p := range parts {
+			if err := setFieldValue(slice.Index(i), p); err != nil {
+				return err
+			}
+		}
+		fieldVal.Set(slice)
+	case reflect.Map:
+		// For maps, try to parse JSON string
+		m := reflect.New(fieldVal.Type()).Interface()
+		if err := json.Unmarshal([]byte(val), &m); err != nil {
 			return err
 		}
-	case reflect.Int:
-		x, err := strconv.Atoi(val)
-		if err != nil {
-			return err
-		}
-		bodyBytes, err = json.Marshal(x)
-		if err != nil {
-			return err
-		}
+		fieldVal.Set(reflect.ValueOf(m).Elem())
 	default:
-		bodyBytes, err = json.Marshal(val)
-	}
-	if err != nil {
-		return err
-	}
-	err = json.Unmarshal(bodyBytes, target)
-	if err != nil {
-		return err
+		return fmt.Errorf("unsupported field type: %s", fieldVal.Type())
 	}
 	return nil
 }
